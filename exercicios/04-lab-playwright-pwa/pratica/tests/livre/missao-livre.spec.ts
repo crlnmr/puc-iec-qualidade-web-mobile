@@ -33,15 +33,51 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { test, expect } from '@playwright/test';
-import { falta } from '../support/todo';
 
-test.describe('Missão livre — <nome do seu fluxo>', () => {
-  test('feliz: <descreva>', async ({ page }) => {
-    await page.goto('/qa');
-    void expect;
-    falta('Missão livre — teste feliz');
+test.describe('Missão livre — remoção de favoritos', () => {
+  test('feliz: remove um favorito e atualiza a lista', async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem('cinefav-favorites', JSON.stringify([603, 680]));
+    });
+
+    await page.goto('/favorites');
+    await expect(page.getByTestId('favorites-count')).toHaveText('2 filmes favoritos');
+
+    await page.getByTestId('favorites-item-603-remove').click();
+
+    await expect(page.getByTestId('favorites-count')).toHaveText('1 filme favorito');
+    await expect(page.getByTestId('favorites-item-603')).toBeHidden();
+    await expect(page.getByTestId('favorites-item-680')).toBeVisible();
   });
 
-  // test('negativo: <descreva>', async ({ page }) => { ... });
-  // test('borda: <descreva>', async ({ page }) => { ... });
+  test('negativo: lista vazia exibe mensagem e não mostra filmes', async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem('cinefav-favorites', JSON.stringify([]));
+    });
+
+    await page.goto('/favorites');
+
+    await expect(page.getByTestId('favorites-count')).toHaveText('0 filmes favoritos');
+    await expect(page.getByTestId('favorites-empty')).toContainText('Nada por aqui ainda');
+    await expect(page.getByTestId('favorites-item-603')).toBeHidden();
+  });
+
+  test('borda: favorito removido continua ausente após recarregar', async ({ page }) => {
+    await page.addInitScript(() => {
+      if (localStorage.getItem('cinefav-favorites') === null) {
+        localStorage.setItem('cinefav-favorites', JSON.stringify([603]));
+      }
+    });
+
+    await page.goto('/favorites');
+    await expect(page.getByTestId('favorites-count')).toHaveText('1 filme favorito');
+
+    await page.getByTestId('favorites-item-603-remove').click();
+    await expect(page.getByTestId('favorites-count')).toHaveText('0 filmes favoritos');
+
+    await page.reload();
+
+    await expect(page.getByTestId('favorites-count')).toHaveText('0 filmes favoritos');
+    await expect(page.getByTestId('favorites-empty')).toBeVisible();
+  });
 });

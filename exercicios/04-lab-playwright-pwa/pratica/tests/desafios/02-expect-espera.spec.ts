@@ -31,8 +31,13 @@ test.describe('Bloco B — expect e espera', () => {
     await expect(cards).toHaveCount(12);
 
     // ✍️ sua vez: 24, depois 36, depois o botão some
-    void loadMore;
-    falta('B1 — complete a paginação');
+    await loadMore.click();
+    await expect(cards).toHaveCount(24);
+
+    await loadMore.click();
+    await expect(cards).toHaveCount(36);
+
+    await expect(loadMore).toBeHidden();
   });
 
   // ── B2 🟡 · ≈ 7 min ────────────────────────────────────────────────────────
@@ -48,7 +53,26 @@ test.describe('Bloco B — expect e espera', () => {
   test('B2. busca com debounce: digita devagar, limpa, e o vazio', async ({ page }) => {
     await page.goto('/search');
 
-    falta('B2 — escreva os 4 passos');
+    const input = page.getByRole('textbox');
+
+    await input.pressSequentially('matrix', { delay: 80 });
+
+    const results = page.locator('[data-testid^="search-result-"]');
+
+    await expect(results).toHaveCount(1);
+    await expect(results.first()).toContainText(/Matrix/i);
+
+    await page.getByRole('button', { name: /Limpar/i }).click();
+
+    await expect(input).toHaveValue('');
+    await expect(results).toHaveCount(0);
+
+    await input.pressSequentially('xyzw', { delay: 80 });
+
+    const empty = page.getByTestId('search-empty');
+
+    await expect(empty).toBeVisible();
+    await expect(empty).toContainText('xyzw');
   });
 
   // ── B3 🔴 · ≈ 12 min ───────────────────────────────────────────────────────
@@ -69,6 +93,46 @@ test.describe('Bloco B — expect e espera', () => {
   test('B3. favoritos persistem: expect.poll no localStorage + soft após reload', async ({ page }) => {
     await page.goto('/qa');
 
-    falta('B3 — escreva o teste inteiro');
+    const filmes = [
+      { titulo: 'Matrix', id: 603 },
+      { titulo: 'Pulp Fiction', id: 680 },
+      { titulo: 'Clube da Luta', id: 550 },
+    ];
+
+    for (const filme of filmes) {
+      const card = page
+        .getByRole('article')
+        .filter({ hasText: filme.titulo });
+
+      await card.getByRole('button', { name: /Favoritar/ }).click();
+    }
+
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          JSON.parse(localStorage.getItem('cinefav-favorites') ?? '[]'),
+        ),
+      )
+      .toEqual([603, 680, 550]);
+
+    await page.reload();
+
+    for (const filme of filmes) {
+      const card = page
+        .getByRole('article')
+        .filter({ hasText: filme.titulo });
+
+      await expect
+        .soft(card.getByRole('button', { name: /Remover/ }))
+        .toHaveAttribute('aria-pressed', 'true');
+    }
+
+    const forrestGump = page
+      .getByRole('article')
+      .filter({ hasText: 'Forrest Gump' });
+
+    await expect
+      .soft(forrestGump.getByRole('button'))
+      .toHaveAttribute('aria-pressed', 'false');
   });
 });
